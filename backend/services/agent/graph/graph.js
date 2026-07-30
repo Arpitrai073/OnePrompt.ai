@@ -9,6 +9,7 @@ import { pptAgent } from "../agents/ppt.agent.js";
 import { visionAgent } from "../agents/vision.agent.js";
 import { pdfRag } from "../agents/pdfRag.agent.js";
 import { imageAnalyzer } from "../agents/imageAnalyzer.agent.js";
+import { kbAgent } from "../agents/kb.agent.js";
 
 const workflow=new StateGraph(agentState)
 
@@ -21,6 +22,7 @@ workflow.addNode("ppt",pptAgent)
 workflow.addNode("vision",visionAgent)
 workflow.addNode("pdfRag",pdfRag)
 workflow.addNode("imageAnalyzer",imageAnalyzer)
+workflow.addNode("kb",kbAgent)
 
 workflow.addEdge("__start__","router")
 workflow.addConditionalEdges("router",(state)=>{
@@ -40,7 +42,9 @@ workflow.addConditionalEdges("router",(state)=>{
     case "pdfRag":
      return "pdfRag";
      case "imageAnalyzer":
-     return "imageAnalyzer";  
+     return "imageAnalyzer";
+    case "kb":
+     return "kb";
     default:
      return "chat"
    }
@@ -52,7 +56,8 @@ workflow.addConditionalEdges("router",(state)=>{
    ppt:"ppt" ,
    vision:"vision",
    pdfRag:"pdfRag",
-   imageAnalyzer :"imageAnalyzer"
+   imageAnalyzer :"imageAnalyzer",
+   kb:"kb"
 })
 
 
@@ -64,5 +69,6 @@ workflow.addEdge("ppt","__end__")
 workflow.addEdge("vision","__end__")
 workflow.addEdge("pdfRag","__end__")
 workflow.addEdge("imageAnalyzer","__end__")
+workflow.addEdge("kb","__end__")
 
 export const graph=workflow.compile()

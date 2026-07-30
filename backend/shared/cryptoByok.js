@@ -53,7 +53,7 @@ export const providerForAgent = (agent) => {
 export const requiredProvidersFor = (agent, file) => {
     const needed = new Set(["groq"])
     if (agent === "coding") needed.add("openrouter")
-    if (agent === "imageAnalyzer" || agent === "pdfRag") needed.add("gemini")
+    if (agent === "imageAnalyzer" || agent === "pdfRag" || agent === "kb" || agent === "kbIngest") needed.add("gemini")
     if (agent === "auto" && file?.mimetype === "application/pdf") needed.add("gemini")
     if (agent === "auto" && file?.mimetype?.startsWith("image/")) needed.add("gemini")
     return [...needed]

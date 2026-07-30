@@ -57,7 +57,7 @@ const enqueueWebhook = async (url, payload, extra = {}) => {
     }
 }
 
-const executeRun = async ({ userId, keyId, orgId, billingMode, prompt, requestedAgent, file, conversationId, requestId, idempotencyKey }) => {
+const executeRun = async ({ userId, keyId, orgId, billingMode, prompt, requestedAgent, file, conversationId, requestId, idempotencyKey, kbId, kbSlug }) => {
     let convId = conversationId
     if (!convId) {
         const { data } = await axios.get(
@@ -71,6 +71,8 @@ const executeRun = async ({ userId, keyId, orgId, billingMode, prompt, requested
     form.append("prompt", prompt)
     form.append("conversationId", String(convId))
     form.append("agent", requestedAgent)
+    if (kbId) form.append("kbId", String(kbId))
+    if (kbSlug) form.append("kbSlug", String(kbSlug))
     if (file) {
         form.append("file", new Blob([file.buffer], { type: file.mimetype }), file.originalname)
     }
@@ -80,6 +82,7 @@ const executeRun = async ({ userId, keyId, orgId, billingMode, prompt, requested
         headers: internalHeaders({
             "x-user-id": String(userId),
             "x-api-key-id": keyId ? String(keyId) : "",
+            "x-org-id": orgId ? String(orgId) : "",
             "x-billing-mode": billingMode
         }),
         body: form
@@ -115,7 +118,8 @@ const executeRun = async ({ userId, keyId, orgId, billingMode, prompt, requested
         creditsUsed,
         billingMode: mode,
         requestId,
-        conversationId: convId
+        conversationId: convId,
+        sources: data.sources || []
     }
     await logUsage({
         requestId, userId, keyId, orgId, agent: agentUsed, status: "success",
@@ -168,7 +172,9 @@ export const runApi = async (req, res) => {
         file: req.file ? { buffer: req.file.buffer, mimetype: req.file.mimetype, originalname: req.file.originalname } : null,
         conversationId: req.body?.conversationId,
         requestId,
-        idempotencyKey
+        idempotencyKey,
+        kbId: req.body?.kbId || "",
+        kbSlug: req.body?.kbSlug || "default"
     }
 
     if (asyncMode) {

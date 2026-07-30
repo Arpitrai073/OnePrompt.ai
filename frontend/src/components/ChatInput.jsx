@@ -1,4 +1,4 @@
-import { Code2, FileText, Globe, ImageIcon, MessageSquare, Mic, MicOff, Paperclip, Presentation, Send, X, Zap } from 'lucide-react'
+import { BookOpen, Code2, FileText, Globe, ImageIcon, MessageSquare, Mic, MicOff, Paperclip, Presentation, Send, X, Zap } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import sendMessage from '../features/sendMessage'
 import { useDispatch, useSelector } from 'react-redux'
@@ -6,8 +6,10 @@ import { addMessage, setArtifacts, setDraftPrompt, setIsLoading, setMessages } f
 import { createConversation } from '../features/createConversation'
 import { addConversation, setConvTitle, setSelectedConversation } from '../redux/conversationSlice'
 import { updateConversation } from '../features/updateConversation'
+import { listKnowledgeBases } from '../features/knowledgeBases'
 import { useRef } from 'react'
 
+const KB_SLUG_KEY = "oneprompt_kb_slug"
 
 function ChatInput() {
   const [value, setValue] = useState("")
@@ -16,6 +18,8 @@ function ChatInput() {
   const { messages, isLoading, draftPrompt } = useSelector(state => state.message)
   const [selectedFile, setSelectedFile] = useState(null)
   const [listening, setListening] = useState(false)
+  const [kbSlug, setKbSlug] = useState(() => localStorage.getItem(KB_SLUG_KEY) || "default")
+  const [knowledgeBases, setKnowledgeBases] = useState([{ slug: "default", name: "Default" }])
   const recognitionRef = useRef(null)
   const fileRef = useRef(null)
   const dispatch = useDispatch()
@@ -52,6 +56,27 @@ function ChatInput() {
     setValue(draftPrompt)
     dispatch(setDraftPrompt(""))
   }, [draftPrompt, dispatch])
+
+  useEffect(() => {
+    if (selectedAgent !== "Knowledge") return
+    listKnowledgeBases()
+      .then((data) => {
+        const rows = data?.knowledgeBases || []
+        if (rows.length) setKnowledgeBases(rows)
+      })
+      .catch(() => {})
+  }, [selectedAgent])
+
+  const agents = [
+    { id: "auto", icon: Zap, label: "Auto" },
+    { id: "chat", icon: MessageSquare, label: "Chat" },
+    { id: "coding", icon: Code2, label: "Coding" },
+    { id: "pdf", icon: FileText, label: "PDF" },
+    { id: "ppt", icon: Presentation, label: "PPT" },
+    { id: "vision", icon: ImageIcon, label: "Vision" },
+    { id: "search", icon: Globe, label: "Search" },
+    { id: "kb", icon: BookOpen, label: "Knowledge" }
+  ]
 
   const toggleMic = () => {
     if (!recognitionRef.current) {
@@ -96,7 +121,10 @@ function ChatInput() {
     const formData = new FormData()
     formData.append("prompt", value.trim())
     formData.append("conversationId", conversation?._id)
-    formData.append("agent", selectedAgent.toLowerCase())
+    formData.append("agent", agents.find((item) => item.label === selectedAgent)?.id || selectedAgent.toLowerCase())
+    if (selectedAgent === "Knowledge") {
+      formData.append("kbSlug", kbSlug || "default")
+    }
     if (selectedFile) {
       formData.append("file", selectedFile)
     }
@@ -119,51 +147,6 @@ function ChatInput() {
     dispatch(addMessage({ role: "assistant", content: data?.answer, images: data?.images }))
     console.log(data)
   }
-
-  const agents = [
-    {
-      id: "auto",
-      icon: Zap,
-      label: "Auto"
-    },
-
-    {
-      id: "chat",
-      icon: MessageSquare,
-      label: "Chat"
-    },
-
-    {
-      id: "coding",
-      icon: Code2,
-      label: "Coding"
-    },
-
-    {
-      id: "pdf",
-      icon: FileText,
-      label: "PDF"
-    },
-
-    {
-      id: "ppt",
-      icon: Presentation,
-      label: "PPT"
-    },
-
-    {
-      id: "vision",
-      icon: ImageIcon,
-      label: "Vision"
-    },
-
-    {
-      id: "search",
-      icon: Globe,
-      label: "Search"
-    }
-
-  ]
 
   return (
     <div className='w-full overflow-hidden px-3 md:px-5 py-4 border-t border-white/[0.06] bg-[#0d0f14]'>
@@ -211,6 +194,23 @@ function ChatInput() {
 
           })}
         </div>
+        {selectedAgent === "Knowledge" && (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[11px] text-slate-500">KB</span>
+            <select
+              value={kbSlug}
+              onChange={(e) => {
+                setKbSlug(e.target.value)
+                localStorage.setItem(KB_SLUG_KEY, e.target.value)
+              }}
+              className="h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] px-2 text-[12px] text-slate-300 outline-none"
+            >
+              {knowledgeBases.map((kb) => (
+                <option key={kb.slug || kb.id} value={kb.slug}>{kb.name} ({kb.slug})</option>
+              ))}
+            </select>
+          </div>
+        )}
         {
           selectedFile && <div className='my-3'>
 

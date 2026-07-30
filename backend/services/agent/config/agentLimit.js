@@ -6,7 +6,9 @@ const Limits = {
     pdf: 5,
     ppt: 5,
     image: 5,
-    search: 5
+    search: 5,
+    kb: 5,
+    kbIngest: 5
 }
 
 const bump = async (key, agent, max, label) => {

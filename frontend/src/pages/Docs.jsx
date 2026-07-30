@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { useSelector } from "react-redux"
-import { ArrowLeft, ArrowRight, BookOpen, Check, Copy, CreditCard, FileText, KeyRound, Layers, Server, TriangleAlert, Zap } from "lucide-react"
+import { ArrowLeft, ArrowRight, BookOpen, Check, Copy, CreditCard, FileText, KeyRound, Layers, Library, Server, TriangleAlert, Zap } from "lucide-react"
 import SiteHeader from "../components/SiteHeader"
 import CodeBlock from "../components/CodeBlock"
 import { getLiveApiBase, getPublicApiBase, isLocalHost } from "../features/publicApiBase"
@@ -11,6 +11,7 @@ const TABS = [
     { id: "auth", label: "Auth", hint: "Bearer keys", icon: KeyRound },
     { id: "run", label: "POST /v1/run", hint: "The only write path", icon: Server },
     { id: "agents", label: "Agents", hint: "What to send", icon: Layers },
+    { id: "knowledge", label: "Knowledge", hint: "Upload once, ask later", icon: Library },
     { id: "async", label: "Async jobs", hint: "202 + poll", icon: BookOpen },
     { id: "files", label: "Files", hint: "Refresh downloads", icon: FileText },
     { id: "errors", label: "Errors", hint: "What failed", icon: TriangleAlert },
@@ -198,7 +199,8 @@ function Docs() {
                                         ["search", "Web search then answer"],
                                         ["coding", "Code or a small project"],
                                         ["ppt", "Generate slides"],
-                                        ["auto + PDF file", "Document Q&A (RAG)"],
+                                        ["auto + PDF file", "One-shot document Q&A (attach the file)"],
+                                        ["kb", "Workspace knowledge base (no file)"],
                                         ["auto + image file", "Image analysis"]
                                     ].map(([agent, use]) => (
                                         <div key={agent} className="rounded-xl border border-white/[0.07] bg-[#11141c] px-4 py-3.5">
@@ -207,6 +209,57 @@ function Docs() {
                                         </div>
                                     ))}
                                 </div>
+                            </section>
+                        )}
+
+                        {tab === "knowledge" && (
+                            <section>
+                                <h1 className="mt-2 text-[32px] font-semibold tracking-tight">Workspace knowledge</h1>
+                                <p className="mt-3 text-[15px] text-slate-400 leading-relaxed">Named knowledge bases per workspace. Upload PDF, DOCX, or TXT once (async by default). Ask later with JSON only. One-shot RAG still works when you attach a file to <code className="font-mono text-slate-200">/v1/run</code>.</p>
+                                <div className="mt-8 space-y-4">
+                                    {[
+                                        ["1", "Create KB", "POST /v1/knowledge-bases with name and optional slug. Default KB is created automatically."],
+                                        ["2", "Upload", "POST /v1/documents multipart file + kbSlug. Returns 202 with jobId. Poll job or document until ready. Use ?sync=true for small local uploads."],
+                                        ["3", "Ask", "POST /v1/run with agent kb, prompt, and kbSlug. Do not send a file."],
+                                        ["4", "Quotas", "Org limits apply (free 50 docs / 200 MB; api_starter 200 / 1 GB; api_pro 1000 / 5 GB). Quota is returned on list endpoints."]
+                                    ].map(([n, title, body]) => (
+                                        <div key={n} className="flex gap-4 rounded-2xl border border-white/[0.07] bg-[#11141c] p-4">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-200 text-[13px] font-semibold flex items-center justify-center shrink-0">{n}</div>
+                                            <div>
+                                                <h2 className="text-[15px] font-medium">{title}</h2>
+                                                <p className="mt-1 text-[13px] text-slate-400 leading-relaxed">{body}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-6">
+                                    <CodeBlock
+                                        label="Create KB"
+                                        code={`curl -X POST ${baseUrl}/v1/knowledge-bases \\
+  -H "Authorization: Bearer $ONEPROMPT_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"Handbook","slug":"handbook"}'`}
+                                    />
+                                </div>
+                                <div className="mt-4">
+                                    <CodeBlock
+                                        label="Upload"
+                                        code={`curl -X POST ${baseUrl}/v1/documents \\
+  -H "Authorization: Bearer $ONEPROMPT_API_KEY" \\
+  -F "file=@handbook.pdf" \\
+  -F "kbSlug=handbook"`}
+                                    />
+                                </div>
+                                <div className="mt-4">
+                                    <CodeBlock
+                                        label="Ask"
+                                        code={`curl -X POST ${baseUrl}/v1/run \\
+  -H "Authorization: Bearer $ONEPROMPT_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"prompt":"What is the refund window?","agent":"kb","kbSlug":"handbook"}'`}
+                                    />
+                                </div>
+                                <p className="mt-4 text-[13px] text-slate-500">List with GET /v1/documents?kbSlug=handbook. Remove with DELETE /v1/documents/:docId. Empty KB returns 409 knowledge_base_empty. Auto chat never searches this corpus. Per-document ACLs are not in this release.</p>
                             </section>
                         )}
 
@@ -254,6 +307,7 @@ Authorization: Bearer $ONEPROMPT_API_KEY`}
                                         ["402", "Not enough API credits"],
                                         ["403", "IP not on the key allowlist"],
                                         ["429", "Rate limit or daily cap"],
+                                        ["409", "Knowledge base is empty — upload a PDF first"],
                                         ["400", "Bad request, or missing BYOK provider key"],
                                         ["502", "BYOK provider rejected the key"]
                                     ].map(([code, meaning]) => (
@@ -277,7 +331,7 @@ Authorization: Bearer $ONEPROMPT_API_KEY`}
                                         <ul className="mt-4 space-y-3 text-[13px] text-slate-300">
                                             <li className="flex justify-between"><span>chat</span><span className="text-slate-100 font-medium">1</span></li>
                                             <li className="flex justify-between"><span>search</span><span className="text-slate-100 font-medium">5</span></li>
-                                            <li className="flex justify-between"><span>pdf / ppt / vision / coding</span><span className="text-slate-100 font-medium">10</span></li>
+                                            <li className="flex justify-between"><span>pdf / ppt / vision / coding / kb</span><span className="text-slate-100 font-medium">10</span></li>
                                         </ul>
                                     </div>
                                     <div className="rounded-2xl border border-white/[0.08] bg-[#11141c] p-5">

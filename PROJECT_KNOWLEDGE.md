@@ -1,6 +1,8 @@
 # OnePrompt.ai / CortexAI — Project Knowledge Base
 
-**Instructions for any AI reading this file:** Treat this document as the single source of truth for the project. Do not invent features that are not listed here. If something is not mentioned, say it is unknown or not implemented. Do not claim GraphQL, WebSockets, token streaming, lazy loading, or memoization unless listed. Do not paste or assume real API keys.
+**SUPERSEDED:** The complete, current document is [`DOCUMENTATION.md`](./DOCUMENTATION.md). This file was written before React Router, `/v1`, dual wallets, BYOK, orgs, Docs/Develop, and the public landing page. Do not trust endpoint counts, “no React Router”, or the old “12 REST endpoints / 4 collections” lists here. If this file and `DOCUMENTATION.md` disagree, trust `DOCUMENTATION.md`.
+
+**Instructions for any AI reading this file:** Prefer `DOCUMENTATION.md`. Do not invent features. Do not claim GraphQL, WebSockets, or token streaming. Do not paste or assume real API keys.
 
 - **Product name (resume/live):** OnePrompt.ai
 - **Codebase folder name:** CortexAI (`1.cortexAI`)

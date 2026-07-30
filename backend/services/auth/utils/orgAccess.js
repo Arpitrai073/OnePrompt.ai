@@ -3,14 +3,19 @@ import Organization from "../models/organization.model.js"
 import OrgMember from "../models/orgMember.model.js"
 import ApiKey from "../models/apiKey.model.js"
 import User from "../models/user.model.js"
+import { applyOrgQuotas, ensureDefaultKnowledgeBase } from "./kbAccess.js"
 
 export const canManageKeys = (member) => member?.role === "owner" || member?.role === "admin"
 
 export const ensureOrg = async (userId) => {
     const existing = await OrgMember.findOne({ userId: String(userId), status: "active" })
     if (existing) {
-        const org = await Organization.findById(existing.orgId)
-        if (org) return { org, member: existing }
+        let org = await Organization.findById(existing.orgId)
+        if (org) {
+            org = await applyOrgQuotas(org)
+            await ensureDefaultKnowledgeBase(org._id, userId)
+            return { org, member: existing }
+        }
     }
     const user = await User.findById(userId)
     const org = await Organization.create({
@@ -29,6 +34,8 @@ export const ensureOrg = async (userId) => {
         { userId: String(userId), $or: [{ orgId: { $exists: false } }, { orgId: "" }, { orgId: null }] },
         { orgId: String(org._id) }
     )
+    await applyOrgQuotas(org)
+    await ensureDefaultKnowledgeBase(org._id, userId)
     return { org, member }
 }
 

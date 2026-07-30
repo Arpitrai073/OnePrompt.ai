@@ -5,6 +5,8 @@ import { getByok, resolveByok, saveByok } from "../controllers/byok.controller.j
 import { getOrg, inviteMember, joinOrg, removeMember, updateOrg } from "../controllers/org.controller.js"
 import { ackWebhook, createJob, dueWebhooks, enqueueWebhook, getJob, listJobs, updateJob } from "../controllers/job.controller.js"
 import { exportAudit } from "../controllers/audit.controller.js"
+import { createDocument, deleteDocument, getDocument, listDocuments, updateDocumentStatus } from "../controllers/document.controller.js"
+import { createKnowledgeBase, deleteKnowledgeBase, listKnowledgeBases } from "../controllers/knowledgeBase.controller.js"
 import { requireInternalToken } from "../../../shared/internalAuth.js"
 
 const router = express.Router()
@@ -30,6 +32,16 @@ router.post("/org/join", requireInternalToken, joinOrg)
 router.post("/org/members/:id/remove", requireInternalToken, removeMember)
 router.get("/jobs", requireInternalToken, listJobs)
 router.get("/jobs/:jobId", requireInternalToken, getJob)
+router.get("/knowledge-bases", requireInternalToken, listKnowledgeBases)
+router.post("/knowledge-bases", requireInternalToken, createKnowledgeBase)
+router.delete("/knowledge-bases/:id", requireInternalToken, deleteKnowledgeBase)
+router.post("/knowledge-bases/:id/delete", requireInternalToken, deleteKnowledgeBase)
+router.post("/documents", requireInternalToken, createDocument)
+router.get("/documents", requireInternalToken, listDocuments)
+router.get("/documents/:id", requireInternalToken, getDocument)
+router.delete("/documents/:id", requireInternalToken, deleteDocument)
+router.post("/documents/:id/delete", requireInternalToken, deleteDocument)
+router.post("/internal/documents/:id", requireInternalToken, updateDocumentStatus)
 router.post("/internal/resolve-api-key", requireInternalToken, resolveApiKey)
 router.post("/internal/log-usage", requireInternalToken, logUsage)
 router.post("/internal/byok-credentials", requireInternalToken, resolveByok)

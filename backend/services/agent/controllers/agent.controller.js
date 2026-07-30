@@ -6,10 +6,11 @@ import { requiredProvidersFor } from "../../../shared/cryptoByok.js"
 
 export const agent = async (req, res, next) => {
     try {
-        const { prompt, conversationId, agent } = req.body
+        const { prompt, conversationId, agent, kbId, kbSlug } = req.body
         const file = req.file
         const userId = req.headers["x-user-id"]
         const keyId = req.headers["x-api-key-id"]
+        const orgId = req.headers["x-org-id"] || ""
         const billingMode = req.headers["x-billing-mode"] === "byok" ? "byok" : "platform"
         let providerKeys = {}
 
@@ -42,7 +43,11 @@ export const agent = async (req, res, next) => {
             billingMode,
             providerKeys,
             keyId,
-            s3Keys: []
+            orgId,
+            kbId: kbId || "",
+            kbSlug: kbSlug || "default",
+            s3Keys: [],
+            sources: []
         })
         await addMessage(conversationId, "user", prompt)
         await addMessage(conversationId, "assistant", result.aiResponse)
@@ -56,6 +61,7 @@ export const agent = async (req, res, next) => {
             artifacts: result?.artifacts,
             agent: result?.agent,
             s3Keys: result?.s3Keys || [],
+            sources: result?.sources || [],
             billingMode
         })
     } catch (error) {

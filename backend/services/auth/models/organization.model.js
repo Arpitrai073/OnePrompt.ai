@@ -17,6 +17,14 @@ const organizationSchema = new mongoose.Schema({
     allowedDomain: {
         type: String,
         default: ""
+    },
+    maxDocuments: {
+        type: Number,
+        default: 50
+    },
+    maxBytes: {
+        type: Number,
+        default: 209715200
     }
 }, { timestamps: true })
 

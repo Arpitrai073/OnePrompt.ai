@@ -8,6 +8,8 @@ export const CREDIT_COST = {
     pdfRag: 10,
     imageAnalyzer: 10,
     image: 10,
+    kb: 10,
+    kbIngest: 10,
     auto: 1
 }
 
@@ -21,6 +23,8 @@ export const BYOK_CREDIT_COST = {
     pdfRag: 2,
     imageAnalyzer: 1,
     image: 2,
+    kb: 2,
+    kbIngest: 2,
     auto: 1
 }
 

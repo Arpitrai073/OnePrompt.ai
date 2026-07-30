@@ -14,5 +14,9 @@ export const agentState=Annotation.Root({
     billingMode:Annotation(),
     providerKeys:Annotation(),
     keyId:Annotation(),
-    s3Keys:Annotation()
+    s3Keys:Annotation(),
+    orgId:Annotation(),
+    sources:Annotation(),
+    kbId:Annotation(),
+    kbSlug:Annotation()
 })

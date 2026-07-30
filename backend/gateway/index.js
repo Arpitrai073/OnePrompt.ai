@@ -10,6 +10,8 @@ import { runApi } from "./controllers/run.controller.js"
 import { getRunFiles } from "./controllers/files.controller.js"
 import { getJob } from "./controllers/jobs.controller.js"
 import { getAudit } from "./controllers/audit.controller.js"
+import { createPublicDocument, deletePublicDocument, getPublicDocument, listPublicDocuments } from "./controllers/documents.controller.js"
+import { createPublicKnowledgeBase, deletePublicKnowledgeBase, listPublicKnowledgeBases } from "./controllers/knowledgeBases.controller.js"
 import { startWebhookWorker } from "./utils/webhookWorker.js"
 import protect from "./middleware/auth.middleware.js"
 import { proxyWithHeader } from "./utils/proxyWithHeader.js"
@@ -59,6 +61,13 @@ app.post("/v1/run", protect, parseRunBody, runApi)
 app.get("/v1/files/:requestId", protect, getRunFiles)
 app.get("/v1/jobs/:jobId", protect, getJob)
 app.get("/v1/audit", protect, getAudit)
+app.get("/v1/knowledge-bases", protect, listPublicKnowledgeBases)
+app.post("/v1/knowledge-bases", protect, express.json(), createPublicKnowledgeBase)
+app.delete("/v1/knowledge-bases/:id", protect, deletePublicKnowledgeBase)
+app.get("/v1/documents", protect, listPublicDocuments)
+app.get("/v1/documents/:docId", protect, getPublicDocument)
+app.post("/v1/documents", protect, upload.single("file"), createPublicDocument)
+app.delete("/v1/documents/:docId", protect, deletePublicDocument)
 app.get("/", (req, res) => {
     res.json({ message: "hello from gateway v5" })
 })

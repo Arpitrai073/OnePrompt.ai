@@ -10,6 +10,12 @@ export const proxyWithHeader = (serviceUrl) => {
             if (srcReq.user?.keyId) {
                 proxyReqOpts.headers["x-api-key-id"] = String(srcReq.user.keyId)
             }
+            if (srcReq.user?.orgId) {
+                proxyReqOpts.headers["x-org-id"] = String(srcReq.user.orgId)
+            }
+            if (srcReq.user?.byokEnabled) {
+                proxyReqOpts.headers["x-billing-mode"] = "byok"
+            }
             const extras = internalHeaders()
             Object.entries(extras).forEach(([key, value]) => {
                 proxyReqOpts.headers[key] = value

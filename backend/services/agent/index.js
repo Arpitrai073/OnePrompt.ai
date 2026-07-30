@@ -3,6 +3,7 @@ import dotenv from "dotenv"
 import connectDb from "./config/db.js"
 import router from "./routes/agent.route.js"
 import { requireInternalToken } from "../../shared/internalAuth.js"
+import { startPdfRagCleanupWorker } from "./utils/pdfRagCleanup.js"
 dotenv.config()
 
 const port =process.env.PORT
@@ -31,4 +32,5 @@ app.get("/",(req,res)=>{
 app.listen(port,()=>{
     console.log(`agent started at ${port}`)
     connectDb()
+    startPdfRagCleanupWorker()
 })

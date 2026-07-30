@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Building2, Check, ChevronDown, Copy, KeyRound, Plus, RefreshCw, Sparkles, Trash2, Activity } from "lucide-react"
+import { Building2, Check, ChevronDown, Copy, KeyRound, Plus, RefreshCw, Sparkles, Trash2, Activity, Library } from "lucide-react"
 import { useDispatch, useSelector } from "react-redux"
 import { createApiKey, getByok, getOrg, inviteMember, joinOrg, listApiKeys, listJobs, listUsage, removeMember, revokeApiKey, rotateApiKey, saveByok, updateApiKey, updateOrg } from "../features/apiKeys"
+import { deleteDocument, listDocuments, uploadDocument, waitForDocument } from "../features/documents"
+import { createKnowledgeBase, listKnowledgeBases } from "../features/knowledgeBases"
 import api from "../../utils/axios"
 import getCurrentUser from "../features/getCurrentUser"
 import { setUserdata } from "../redux/userSlice"
 
+const KB_SLUG_KEY = "oneprompt_kb_slug"
+
 const PANELS = [
     { id: "keys", label: "API keys", icon: KeyRound },
     { id: "models", label: "Your models", icon: Sparkles },
+    { id: "knowledge", label: "Knowledge", icon: Library },
     { id: "activity", label: "Activity", icon: Activity },
     { id: "workspace", label: "Workspace", icon: Building2 }
 ]
@@ -48,18 +53,34 @@ function Develop() {
     const [joinCode, setJoinCode] = useState("")
     const [orgName, setOrgName] = useState("")
     const [allowedDomain, setAllowedDomain] = useState("")
+    const [documents, setDocuments] = useState([])
+    const [knowledgeBases, setKnowledgeBases] = useState([])
+    const [quota, setQuota] = useState(null)
+    const [kbSlug, setKbSlug] = useState(() => localStorage.getItem(KB_SLUG_KEY) || "default")
+    const [newKbName, setNewKbName] = useState("")
+    const [creatingKb, setCreatingKb] = useState(false)
+    const [uploadingDoc, setUploadingDoc] = useState(false)
+    const [deletingDoc, setDeletingDoc] = useState(null)
+    const fileInputRef = useRef(null)
+
+    const selectKb = (slug) => {
+        setKbSlug(slug)
+        localStorage.setItem(KB_SLUG_KEY, slug)
+    }
 
     const refresh = async () => {
         setLoading(true)
         setError("")
         try {
-            const [keyRows, usageRows, me, byokStatus, orgData, jobRows] = await Promise.all([
+            const [keyRows, usageRows, me, byokStatus, orgData, jobRows, docsData, kbData] = await Promise.all([
                 listApiKeys(),
                 listUsage(),
                 getCurrentUser(),
                 getByok(),
                 getOrg(),
-                listJobs()
+                listJobs(),
+                listDocuments({ kbSlug }),
+                listKnowledgeBases()
             ])
             setKeys(keyRows || [])
             setUsage(usageRows || [])
@@ -68,6 +89,9 @@ function Develop() {
             setOrgName(orgData?.name || "")
             setAllowedDomain(orgData?.allowedDomain || "")
             setJobs(jobRows || [])
+            setDocuments(docsData?.documents || [])
+            setQuota(docsData?.quota || kbData?.quota || null)
+            setKnowledgeBases(kbData?.knowledgeBases || [])
             if (me) dispatch(setUserdata(me))
         } catch (err) {
             setError(err?.response?.data?.message || "Could not load API settings.")
@@ -78,7 +102,7 @@ function Develop() {
 
     useEffect(() => {
         refresh()
-    }, [])
+    }, [kbSlug])
 
     const handleCreate = async () => {
         setCreating(true)
@@ -395,6 +419,151 @@ function Develop() {
                             >
                                 {savingByok ? "Saving..." : "Save provider keys"}
                             </button>
+                        </section>
+                    )}
+
+                    {panel === "knowledge" && (
+                        <section className={`${cardClass} p-5 md:p-6`}>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="text-[16px] font-semibold">Workspace knowledge</h2>
+                                    <p className="text-[13px] text-slate-500 mt-1">
+                                        Named corpora (PDF / DOCX / TXT). Ask with <code className="text-slate-300">agent=kb</code> and <code className="text-slate-300">kbSlug</code>.
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    <select
+                                        value={kbSlug}
+                                        onChange={(e) => selectKb(e.target.value)}
+                                        className={`${fieldClass} w-auto min-w-[140px]`}
+                                    >
+                                        {(knowledgeBases.length ? knowledgeBases : [{ slug: "default", name: "Default" }]).map((kb) => (
+                                            <option key={kb.slug || kb.id} value={kb.slug}>{kb.name} ({kb.slug})</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,text/plain,.txt"
+                                        hidden
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0]
+                                            e.target.value = ""
+                                            if (!file) return
+                                            setUploadingDoc(true)
+                                            setError("")
+                                            try {
+                                                const result = await uploadDocument(file, { kbSlug, sync: true })
+                                                const doc = result?.document
+                                                if (doc?.status === "processing" && doc?.id) {
+                                                    await waitForDocument(doc.id)
+                                                }
+                                                await refresh()
+                                            } catch (err) {
+                                                setError(err?.response?.data?.message || err.message || "Could not upload document.")
+                                            } finally {
+                                                setUploadingDoc(false)
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        disabled={uploadingDoc}
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="h-10 px-4 rounded-xl bg-white text-black text-[13px] font-medium disabled:opacity-40"
+                                    >
+                                        {uploadingDoc ? "Indexing..." : "Upload"}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {quota && (
+                                <div className="mt-4 rounded-xl border border-white/[0.07] px-4 py-3">
+                                    <div className="flex justify-between text-[12px] text-slate-400 mb-2">
+                                        <span>Storage quota</span>
+                                        <span>
+                                            {quota.usedDocuments}/{quota.maxDocuments} docs · {Math.round((quota.usedBytes || 0) / (1024 * 1024))} / {Math.round((quota.maxBytes || 0) / (1024 * 1024))} MB
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                                        <div
+                                            className="h-full bg-indigo-400/80"
+                                            style={{
+                                                width: `${Math.min(100, ((quota.usedBytes || 0) / Math.max(1, quota.maxBytes || 1)) * 100)}%`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                                <input
+                                    value={newKbName}
+                                    onChange={(e) => setNewKbName(e.target.value)}
+                                    placeholder="New knowledge base name (e.g. Handbook)"
+                                    className={fieldClass}
+                                />
+                                <button
+                                    disabled={creatingKb || !newKbName.trim()}
+                                    onClick={async () => {
+                                        setCreatingKb(true)
+                                        setError("")
+                                        try {
+                                            const created = await createKnowledgeBase({ name: newKbName.trim() })
+                                            const slug = created?.knowledgeBase?.slug || created?.slug
+                                            setNewKbName("")
+                                            if (slug) selectKb(slug)
+                                            await refresh()
+                                        } catch (err) {
+                                            setError(err?.response?.data?.message || "Could not create knowledge base.")
+                                        } finally {
+                                            setCreatingKb(false)
+                                        }
+                                    }}
+                                    className="h-10 px-4 rounded-xl border border-white/[0.1] text-[13px] text-slate-200 disabled:opacity-40"
+                                >
+                                    {creatingKb ? "Creating..." : "Create KB"}
+                                </button>
+                            </div>
+
+                            <div className="mt-5 divide-y divide-white/[0.06] rounded-xl border border-white/[0.07]">
+                                {documents.length === 0 && (
+                                    <p className="px-4 py-8 text-[13px] text-slate-500 text-center">
+                                        No documents in <code className="text-slate-400">{kbSlug}</code> yet. Upload PDF, DOCX, or TXT, then ask with <code className="text-slate-400">agent=kb</code>.
+                                    </p>
+                                )}
+                                {documents.map((doc) => (
+                                    <div key={doc.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                        <div className="min-w-0">
+                                            <p className="text-[13px] text-slate-200 truncate">{doc.filename}</p>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">
+                                                {doc.status}
+                                                {doc.kbSlug ? ` · ${doc.kbSlug}` : ""}
+                                                {doc.chunkCount ? ` · ${doc.chunkCount} chunks` : ""}
+                                                {doc.bytes ? ` · ${Math.max(1, Math.ceil(doc.bytes / 1024))} KB` : ""}
+                                                {doc.error ? ` · ${doc.error}` : ""}
+                                            </p>
+                                        </div>
+                                        <button
+                                            disabled={deletingDoc === doc.id}
+                                            onClick={async () => {
+                                                setDeletingDoc(doc.id)
+                                                setError("")
+                                                try {
+                                                    await deleteDocument(doc.id)
+                                                    await refresh()
+                                                } catch (err) {
+                                                    setError(err?.response?.data?.message || "Could not delete document.")
+                                                } finally {
+                                                    setDeletingDoc(null)
+                                                }
+                                            }}
+                                            className="text-red-300 text-[12px] disabled:opacity-40"
+                                        >
+                                            {deletingDoc === doc.id ? "Removing..." : "Delete"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </section>
                     )}
 
