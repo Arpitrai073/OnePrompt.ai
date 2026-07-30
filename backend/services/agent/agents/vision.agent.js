@@ -4,11 +4,13 @@ import { uploadToS3 } from "../utils/uploadToS3.js"
 import { getFromS3 } from "../utils/getFromS3.js"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 export const visionAgent=async (state) => {
 
     try {
-        await checkAgentLimit(state.userId,"image")
-         const llm=await getModel("image")
+        await checkAgentLimit(state.userId,"image", state.keyId)
+        await deductCredits(state.userId,"vision", state.billingMode, state.keyId)
+         const llm=await getModel("image", state)
     const res=await llm.invoke(`
         You are an elite AI image prompt engineer.
 
@@ -40,7 +42,6 @@ const prompt=res.content.trim()
 const imageUrl=`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`
 
 const imageRes=await axios.get(imageUrl,{responseType:"arraybuffer"})
-await deductCredits(state.userId,"vision")
 const buffer=Buffer.from(imageRes.data)
 const filename=`image-${Date.now()}.png`
 
@@ -49,6 +50,7 @@ const downloadUrl=await getFromS3(filename,24*60)
 
 return {
     ...state,
+    s3Keys:[filename],
     aiResponse:`
 ![Generated Image](${downloadUrl})
 
@@ -58,10 +60,7 @@ return {
 }
     } catch (error) {
        console.log(error)
-         return {
-            ...state,
-            aiResponse:error?.data?.message || "failed to generate image"
-        }
+       rethrowOrFail(error, "failed to generate image")
     }
    
 

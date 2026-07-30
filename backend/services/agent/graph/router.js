@@ -29,7 +29,7 @@ if(state.file.mimetype==="application/pdf"){
   
 
 
-  const llm = await getModel("router")
+  const llm = await getModel("router", state)
   const prompt = `You are an agent router.
 
 Available agents:

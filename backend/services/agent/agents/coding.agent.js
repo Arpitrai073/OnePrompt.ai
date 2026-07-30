@@ -1,12 +1,14 @@
 import { checkAgentLimit } from "../config/agentLimit.js"
 import { getModel } from "../config/llmModels.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 
 export const codingAgent=async (state) => {
 try {
-   await checkAgentLimit(state.userId,"coding")
-   const intentLlm=await getModel("intent")
-   const llm=await getModel("coding")
+   await checkAgentLimit(state.userId,"coding", state.keyId)
+   await deductCredits(state.userId,"coding", state.billingMode, state.keyId)
+   const intentLlm=await getModel("intent", state)
+   const llm=await getModel("coding", state)
    const intentRes=await intentLlm.invoke(`
     You are an intent classifier.
 
@@ -92,7 +94,6 @@ ${state.prompt}
         const res=await llm.invoke(prompt)
         console.log(res)
         const data=JSON.parse(res.content)
-        await deductCredits(state.userId,"coding")
         
         return {
             ...state,
@@ -136,8 +137,7 @@ User Request:
 ${state.prompt}
         `)
 
-   const data=res.content   
-   await deductCredits(state.userId,"coding")
+   const data=res.content
    
    return {
     ...state,
@@ -146,11 +146,7 @@ ${state.prompt}
    }  
 } catch (error) {
    console.log(error)
-         return {
-            ...state,
-            aiResponse:error?.data?.message || "failed to generate code",
-            artifacts:[]
-        }
+   rethrowOrFail(error, "failed to generate code")
 }
   
 }

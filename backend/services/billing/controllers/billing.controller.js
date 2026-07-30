@@ -1,8 +1,9 @@
 import axios from "axios"
 import { PLANS } from "../config/Plans.js"
-import razorpay from "../config/razorpay.js"
+import { getRazorpay, razorpayErrorMessage } from "../config/razorpay.js"
 import Payment from "../models/payment.model.js"
 import crypto from "crypto"
+import { internalHeaders } from "../../../shared/internalAuth.js"
 export const createOrder = async (req, res) => {
     try {
         const { plan } = req.body
@@ -13,7 +14,11 @@ export const createOrder = async (req, res) => {
             return res.status(404).json({ message: "plan not found" })
         }
 
-        const order = await razorpay.orders.create({
+        if (!userId) {
+            return res.status(401).json({ message: "Sign in again to buy credits." })
+        }
+
+        const order = await getRazorpay().orders.create({
             amount: selectedPlan.amount * 100,
             currency: "INR",
             receipt: `receipt-${Date.now()}`
@@ -34,7 +39,11 @@ export const createOrder = async (req, res) => {
 
 
     } catch (error) {
-        return res.status(500).json({ message: `create order error ${error}` })
+        const message = razorpayErrorMessage(error)
+        const hint = /authentication failed/i.test(message)
+            ? " Razorpay Key ID and Key Secret do not match. Update RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in billing/.env from Test mode in the Razorpay dashboard, then restart billing."
+            : ""
+        return res.status(500).json({ message: message + hint })
     }
 }
 
@@ -62,7 +71,8 @@ export const verifyPayment = async (req,res) => {
  payment.paymentId=razorpay_payment_id
  await payment.save()
 
- const {data}=await axios.post(`${process.env.AUTH_SERVICE}/update-plan`,{userId:payment.userId,plan:payment.plan,credits:payment.credits})
+ const wallet = PLANS[payment.plan]?.wallet || (String(payment.plan).startsWith("api_") ? "api" : "playground")
+ const {data}=await axios.post(`${process.env.AUTH_SERVICE}/update-plan`,{userId:payment.userId,plan:payment.plan,credits:payment.credits,wallet},{headers:internalHeaders()})
  console.log(data)
 
  return res.status(200).json({message:"Payment Verified"})

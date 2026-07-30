@@ -2,7 +2,7 @@ import { Code2, FileText, Globe, ImageIcon, MessageSquare, Mic, MicOff, Papercli
 import React, { useEffect, useState } from 'react'
 import sendMessage from '../features/sendMessage'
 import { useDispatch, useSelector } from 'react-redux'
-import { addMessage, setArtifacts, setIsLoading, setMessages } from '../redux/messageSlice'
+import { addMessage, setArtifacts, setDraftPrompt, setIsLoading, setMessages } from '../redux/messageSlice'
 import { createConversation } from '../features/createConversation'
 import { addConversation, setConvTitle, setSelectedConversation } from '../redux/conversationSlice'
 import { updateConversation } from '../features/updateConversation'
@@ -13,7 +13,7 @@ function ChatInput() {
   const [value, setValue] = useState("")
   const [selectedAgent, setSelectedAgent] = useState("Auto")
   const { selectedConversation } = useSelector(state => state.conversation)
-  const { messages, isLoading } = useSelector(state => state.message)
+  const { messages, isLoading, draftPrompt } = useSelector(state => state.message)
   const [selectedFile, setSelectedFile] = useState(null)
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef(null)
@@ -46,6 +46,12 @@ function ChatInput() {
 
     recognitionRef.current = recognition
   }, [])
+
+  useEffect(() => {
+    if (!draftPrompt) return
+    setValue(draftPrompt)
+    dispatch(setDraftPrompt(""))
+  }, [draftPrompt, dispatch])
 
   const toggleMic = () => {
     if (!recognitionRef.current) {
@@ -102,6 +108,13 @@ function ChatInput() {
     const data = await sendMessage(formData)
     dispatch(setIsLoading(false))
     setSelectedFile(null)
+    if (!data || data.error) {
+      dispatch(addMessage({
+        role: "assistant",
+        content: data?.message || "Something went wrong. Check credits or try again."
+      }))
+      return
+    }
     dispatch(setArtifacts(data.artifacts || []))
     dispatch(addMessage({ role: "assistant", content: data?.answer, images: data?.images }))
     console.log(data)
@@ -157,11 +170,12 @@ function ChatInput() {
       <div className='flex flex-col gap-2 bg-white/[0.03] border border-white/[0.07] rounded-2xl px-4 pt-3.5 pb-3'>
 
         <div className='flex w-[80%] gap-2 pr-2 flex-wrap'>
-          {agents.map((agent) => {
+            {agents.map((agent) => {
             const isActive = selectedAgent === agent.label
             const Icon = agent.icon
             return (
               <div
+                key={agent.id}
                 onClick={() => setSelectedAgent(agent.label)}
                 className={`
             flex-shrink-0
@@ -197,7 +211,6 @@ function ChatInput() {
 
           })}
         </div>
-
         {
           selectedFile && <div className='my-3'>
 
@@ -215,7 +228,7 @@ function ChatInput() {
                   {selectedFile?.name}
                 </p>
                 <p className='text-[10px] text-slate-500'>
-                  {Math.ceil(selectedFile.size)}KB
+                  {Math.max(1, Math.ceil(selectedFile.size / 1024))} KB
                 </p>
 
               </div>
@@ -254,7 +267,7 @@ function ChatInput() {
             </button>
           </div>
           <button
-            disabled={!value && isLoading}
+            disabled={!value.trim() || isLoading}
             onClick={handleSendMessage}
             className={`flex items-center justify-center w-8 h-8 rounded-lg border-none cursor-pointer transition-all duration-150 ${value.trim() ? "bg-linear-to-br from-indigo-500 to-violet-700 hover:opacity-90 text-white" : "bg-white/[0.05] text-slate-600 cursor-not-allowed"}`}>
           <Send size={15} />

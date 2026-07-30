@@ -7,7 +7,11 @@ async function sendMessage(payload) {
     return data
  } catch (error) {
     console.log(error)
-    return null
+    return {
+        error: true,
+        status: error?.response?.status,
+        message: error?.response?.data?.message || error?.response?.data?.error || "Request failed"
+    }
  }
 }
 

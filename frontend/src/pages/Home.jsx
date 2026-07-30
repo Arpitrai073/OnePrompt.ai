@@ -1,5 +1,5 @@
 import { signInWithPopup } from 'firebase/auth'
-import React from 'react'
+import React, { useState } from 'react'
 import { auth, googleProvider } from '../../utils/firebase'
 import api from '../../utils/axios'
 import { FcGoogle } from "react-icons/fc";
@@ -8,10 +8,12 @@ import { setUserdata } from '../redux/userSlice';
 import SideBar from '../components/SideBar';
 import ChatArea from '../components/ChatArea';
 import Artifact from '../components/Artifact';
+import Develop from './Develop';
 
 function Home() {
     const {userData}=useSelector(state=>state.user)
     const dispatch=useDispatch()
+    const [view, setView] = useState("playground")
     const handleLogin = async (token) => {
         try {
             const { data } = await api.post("/api/auth/login", { token })
@@ -32,9 +34,8 @@ function Home() {
     return (
         <div className='h-screen  flex bg-[#0d0f14] text-white overflow-hidden'>
 
-<SideBar/>
-<ChatArea/>
-<Artifact/>
+<SideBar view={view} onChangeView={setView}/>
+{view === "develop" ? <Develop/> : <><ChatArea/><Artifact/></>}
 
 
 

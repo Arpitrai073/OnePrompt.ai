@@ -4,12 +4,12 @@ import { getFromS3 } from "../utils/getFromS3.js"
 import { uploadToS3 } from "../utils/uploadToS3.js"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 export const pdfAgent=async (state) => {
     try {
-        const rate=await checkAgentLimit(state.userId,"pdf")
-        
-        
-        const llm=await getModel("pdf")
+        await checkAgentLimit(state.userId,"pdf", state.keyId)
+        await deductCredits(state.userId,"pdf", state.billingMode, state.keyId)
+        const llm=await getModel("pdf", state)
         const prompt=`
         You are an expert document writer.
 
@@ -43,8 +43,6 @@ ${state.prompt}
 
         const res=await llm.invoke(prompt)
         const data=JSON.parse(res.content)
-       await deductCredits(state.userId,"pdf")
-        
         const pdfBuffer=await generatePdf(data)
 
         const filename=`pdf-${Date.now()}.pdf`
@@ -54,6 +52,7 @@ ${state.prompt}
 
         return {
           ...state,
+          s3Keys:[filename],
           aiResponse:`# PDF Generated
 
 **${data.title}**
@@ -65,9 +64,6 @@ _Link expires in 10 minutes._`
 
     } catch (error) {
        console.log(error)
-         return {
-            ...state,
-            aiResponse:error?.data?.message || "failed to generate pdf"
-        }
+       rethrowOrFail(error, "failed to generate pdf")
     }
 }

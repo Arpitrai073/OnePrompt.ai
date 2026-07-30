@@ -1,0 +1,102 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    restart: always
+    environment:
+      PORT: 8001
+      NODE_ENV: ${NODE_ENV:-production}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      MONGODB_URI: ${MONGODB_URI_AUTH}
+      REDIS_URL: redis://redis:6379
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+      BYOK_ENCRYPTION_KEY: ${BYOK_ENCRYPTION_KEY}
+    volumes:
+      - ./secrets/serviceAccountKey.json:/app/services/auth/serviceAccountKey.json:ro
+    depends_on:
+      - redis
+
+  chat:
+    build:
+      context: .
+      dockerfile: services/chat/Dockerfile
+    restart: always
+    environment:
+      PORT: 8002
+      MONGODB_URI: ${MONGODB_URI_CHAT}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    restart: always
+    environment:
+      PORT: 8003
+      MONGODB_URI: ${MONGODB_URI_AGENT}
+      REDIS_URL: redis://redis:6379
+      CHAT_SERVICE: http://chat:8002
+      AUTH_SERVICE: http://auth:8001
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME}
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      - redis
+      - chat
+      - auth
+
+  billing:
+    build:
+      context: .
+      dockerfile: services/billing/Dockerfile
+    restart: always
+    environment:
+      PORT: 8004
+      MONGODB_URI: ${MONGODB_URI_BILLING}
+      AUTH_SERVICE: http://auth:8001
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      - auth
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: 8000
+      AUTH_SERVICE: http://auth:8001
+      CHAT_SERVICE: http://chat:8002
+      AGENT_SERVICE: http://agent:8003
+      BILLING_SERVICE: http://billing:8004
+      FRONTEND_URL: ${FRONTEND_URL}
+      REDIS_URL: redis://redis:6379
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET}
+    depends_on:
+      - auth
+      - chat
+      - agent
+      - billing
+      - redis
+
+volumes:
+  redis_data:

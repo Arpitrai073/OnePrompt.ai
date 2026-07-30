@@ -20,7 +20,20 @@ const userSchema=new mongoose.Schema({
         type:Number,
         default:100
     },
-    planExpiresAt:Date
+    planExpiresAt:Date,
+    byokEnabled:{
+        type:Boolean,
+        default:false
+    },
+    apiPlan:{
+        type:String,
+        default:"free"
+    },
+    apiCredits:{
+        type:Number,
+        default:100
+    },
+    apiPlanExpiresAt:Date
 
 },{
     timestamps:true

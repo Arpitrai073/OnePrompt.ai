@@ -4,10 +4,12 @@ import { getModel } from "../config/llmModels.js"
 import fs from "fs/promises"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 export const imageAnalyzer =async (state) => {
-     await checkAgentLimit(state.userId,"image")
     try {
-        const llm = await getModel("imageAnalyzer")
+        await checkAgentLimit(state.userId,"image", state.keyId)
+        await deductCredits(state.userId,"vision", state.billingMode, state.keyId)
+        const llm = await getModel("imageAnalyzer", state)
 
         const imageBuffer = await fs.readFile(state.file.path)
         const base64Image = imageBuffer.toString("base64")
@@ -47,7 +49,6 @@ Rules:
         ]
 
 const response=await llm.invoke(messages)
- await deductCredits(state.userId,"vision")
 return {
     ...state,
     aiResponse:response.content
@@ -55,11 +56,7 @@ return {
 
     } catch (error) {
        console.log(error)
-         return {
-            ...state,
-            aiResponse:error?.data?.message || "failed to analyze image"
-        
-}
+       rethrowOrFail(error, "failed to analyze image")
     }
     finally{
       await fs.unlink(state.file.path)

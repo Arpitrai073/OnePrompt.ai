@@ -3,6 +3,7 @@ import { getModel } from "../config/llmModels.js"
 import { getMemory } from "../config/memory.js"
 import { deductCredits } from "../utils/deductCredits.js"
 import { checkAgentLimit } from "../config/agentLimit.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 
 export const chatAgent = async (state) => {
 
@@ -10,9 +11,10 @@ export const chatAgent = async (state) => {
 
     try {
 
-        await checkAgentLimit(state.userId,"chat")
+        await checkAgentLimit(state.userId,"chat", state.keyId)
+        await deductCredits(state.userId,"chat", state.billingMode, state.keyId)
 
-         const llm = await getModel("chat")
+         const llm = await getModel("chat", state)
 
     const history = await getMemory(state.conversationId)
 
@@ -74,7 +76,6 @@ Answer the user using only the above search results.
 
 
     const response = await llm.invoke(messages)
-      await deductCredits(state.userId,"chat")
    
     return {
         ...state,
@@ -83,12 +84,7 @@ Answer the user using only the above search results.
     }
     } catch (error) {
         console.log(error)
-         return {
-            ...state,
-            aiResponse:error?.data?.message || "failed to generate chat"
-        }
-        
-    
+        rethrowOrFail(error, "failed to generate chat")
     }
    
 }

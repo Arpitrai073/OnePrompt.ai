@@ -10,5 +10,9 @@ export const agentState=Annotation.Root({
     images:Annotation(),
     artifacts:Annotation(),
     userId:Annotation(),
-    file:Annotation()
-})  
+    file:Annotation(),
+    billingMode:Annotation(),
+    providerKeys:Annotation(),
+    keyId:Annotation(),
+    s3Keys:Annotation()
+})

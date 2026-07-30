@@ -1,13 +1,14 @@
 import { checkAgentLimit } from "../config/agentLimit.js"
 import { searchTool } from "../config/tavily.js"
 import { deductCredits } from "../utils/deductCredits.js"
+import { rethrowOrFail } from "../../../shared/internalAuth.js"
 export const searchAgent = async (state) => {
     try {
-        await checkAgentLimit(state.userId, "search")
+        await checkAgentLimit(state.userId, "search", state.keyId)
+        await deductCredits(state.userId, "search", state.billingMode, state.keyId)
         const results = await searchTool.invoke({
             query: state.prompt
         })
-        await deductCredits(state.userId, "search")
         console.log(results)
         return {
             ...state,
@@ -16,11 +17,6 @@ export const searchAgent = async (state) => {
         }
     } catch (error) {
         console.log(error)
-        return {
-            ...state,
-            searchResults: [],
-            images: [],
-            aiResponse: error?.data?.message || "failed to search"
-        }
+        rethrowOrFail(error, "failed to search")
     }
 }

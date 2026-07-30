@@ -1,21 +1,39 @@
+import axios from "axios"
 import redis from "../../shared/redis/redis.js"
+import { internalHeaders } from "../../shared/internalAuth.js"
 
-const protect=async (req,res,next) => {
+const protect = async (req, res, next) => {
     try {
-        const sessionId=req.cookies?.session
-        if(!sessionId){
-            return res.status(400).json({message:"unauthorized"})
+        const authHeader = req.headers.authorization
+        if (authHeader?.startsWith("Bearer ")) {
+            const token = authHeader.slice(7)
+            const { data } = await axios.post(
+                `${process.env.AUTH_SERVICE}/internal/resolve-api-key`,
+                { token },
+                { headers: internalHeaders() }
+            )
+            req.user = data
+            req.authMode = "api_key"
+            return next()
         }
-        const session=await redis.get(`session-${sessionId}`)
-        console.log(session)
-        if(!session){
-            return res.status(400).json({message:"session expired"})
+
+        const sessionId = req.cookies?.session
+        if (!sessionId) {
+            return res.status(401).json({ error: "unauthorized" })
         }
-        req.user=JSON.parse(session)
+        const session = await redis.get(`session-${sessionId}`)
+        if (!session) {
+            return res.status(401).json({ error: "session expired" })
+        }
+        req.user = JSON.parse(session)
+        req.authMode = "cookie"
         next()
-       
     } catch (error) {
-        return res.status(500).json({message:`protect error ${error}`})
+        const status = error?.response?.status
+        if (status === 401) {
+            return res.status(401).json({ error: "invalid_api_key" })
+        }
+        return res.status(500).json({ error: "protect_error", message: `${error}` })
     }
 }
 

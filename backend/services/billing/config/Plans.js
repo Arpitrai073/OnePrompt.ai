@@ -38,7 +38,41 @@ export const PLANS = {
 
     credits: 1000,
 
-    validity: 30
+    validity: 30,
+
+    wallet: "playground"
+
+  },
+
+  api_starter: {
+
+    id: "api_starter",
+
+    name: "API Starter",
+
+    amount: 299,
+
+    credits: 2000,
+
+    validity: 30,
+
+    wallet: "api"
+
+  },
+
+  api_pro: {
+
+    id: "api_pro",
+
+    name: "API Pro",
+
+    amount: 799,
+
+    credits: 8000,
+
+    validity: 30,
+
+    wallet: "api"
 
   }
 
