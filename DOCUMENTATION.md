@@ -99,7 +99,7 @@ Do **not** claim any of these. They are not implemented.
 - A published SDK (npm / PyPI)
 - SAML / SSO / enterprise IdP
 - Conversation delete
-- Multiple named knowledge bases, Google Drive sync, DOCX/OCR, or per-document ACLs (Phase 1 is **one corpus per workspace**)
+- Google Drive sync (named KBs, DOCX/TXT/images, OCR, and per-document ACLs **are** implemented)
 - Automated test suite
 - ECS / CloudFront / S3-hosted frontend as the **running** production path (there is an unused GitHub Actions workflow that targets that)
 - Gemini **image generation** (Gemini = analysis + embeddings only)
@@ -705,7 +705,7 @@ Pipeline (`pdfRag.agent.js`):
 
 One-shot `pdfRag` still creates a **new** collection per upload (`pdf-{tenant}-{key}-{timestamp}`). An agent worker deletes `pdf-*` collections older than **7 days** (`PDF_RAG_COLLECTION_TTL_DAYS`); it never touches `kb-*`.
 
-**Workspace knowledge (`kb`)** is separate: stable collections per KB (`kb-{orgId}` for `default`, else `kb-{orgId}-{slug}`). Payloads include `orgId`, `kbId`, `kbSlug`, `docId`, `filename`, `chunkIndex`. Delete a document removes those points plus the S3 original. Ask with `agent=kb`, optional `kbSlug`, and no file. Ingest accepts PDF, DOCX (mammoth), and TXT.
+**Workspace knowledge (`kb`)** is separate: stable collections per KB (`kb-{orgId}` for `default`, else `kb-{orgId}-{slug}`). Payloads include `orgId`, `kbId`, `kbSlug`, `docId`, `filename`, `chunkIndex`. Delete a document removes those points plus the S3 original. Ask with `agent=kb`, optional `kbSlug`, and no file. Ingest accepts PDF, DOCX (mammoth), TXT, and images; sparse/scanned PDFs use Gemini OCR. List/search honor per-document ACL.
 
 ---
 
@@ -1002,7 +1002,7 @@ Content-Type: application/json
 
 ## 28. What is not implemented
 
-Repeat of §3, for interview honesty: no streaming, no WebSockets, no GraphQL, no official SDK, no SAML, no conversation delete, no Google Drive sync, no automated tests, no ECS/CloudFront in production, no Gemini image generation, tester not hosted. Named knowledge bases, async ingest, quotas, PDF/DOCX/TXT/images, Gemini OCR for scans, and **per-document ACLs** **are** implemented (ACL+OCR may still be local-only until you push).
+Repeat of §3, for interview honesty: no streaming, no WebSockets, no GraphQL, no official SDK, no SAML, no conversation delete, no Google Drive sync, no automated tests, no ECS/CloudFront in production, no Gemini image generation, tester not hosted. Named knowledge bases, async ingest, quotas, PDF/DOCX/TXT/images, Gemini OCR for scans, and **per-document ACLs** **are** implemented and live.
 
 `React.lazy` / `useMemo` / `useCallback` are **not** a stated optimization of this project.
 
