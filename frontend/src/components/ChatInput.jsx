@@ -206,7 +206,11 @@ function ChatInput() {
               className="h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] px-2 text-[12px] text-slate-300 outline-none"
             >
               {knowledgeBases.map((kb) => (
-                <option key={kb.slug || kb.id} value={kb.slug}>{kb.name} ({kb.slug})</option>
+                <option key={kb.slug || kb.id} value={kb.slug}>
+                  {String(kb.name || kb.slug).toLowerCase() === String(kb.slug || "").toLowerCase()
+                    ? (kb.name || kb.slug)
+                    : `${kb.name} (${kb.slug})`}
+                </option>
               ))}
             </select>
           </div>

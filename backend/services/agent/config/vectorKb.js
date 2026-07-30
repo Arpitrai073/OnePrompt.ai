@@ -48,18 +48,47 @@ const metadataFilter = (field, value) => ({
     ]
 })
 
-export const searchKb = async (query, orgId, embedder, k = 8, kbSlug = "default") => {
+const docIdFilter = (docIds = []) => {
+    const values = [...new Set(docIds.map(String).filter(Boolean))]
+    if (!values.length) return null
+    return {
+        should: values.flatMap((id) => [
+            { key: "docId", match: { value: id } },
+            { key: "metadata.docId", match: { value: id } }
+        ])
+    }
+}
+
+export const searchKb = async (query, orgId, embedder, k = 8, kbSlug = "default", allowedDocIds = null) => {
     const collectionName = kbCollectionName(orgId, kbSlug)
     if (!(await collectionExists(collectionName))) {
         return null
+    }
+    if (Array.isArray(allowedDocIds) && allowedDocIds.length === 0) {
+        return []
     }
     const store = await QdrantVectorStore.fromExistingCollection(embedder, {
         ...qdrantOptions(),
         collectionName
     })
+    const must = [metadataFilter("orgId", orgId)]
+    if (Array.isArray(allowedDocIds)) {
+        const ids = docIdFilter(allowedDocIds)
+        if (ids) must.push(ids)
+    }
+    const filter = { must }
     try {
-        return await store.similaritySearch(query, k, metadataFilter("orgId", orgId))
+        return await store.similaritySearch(query, k, filter)
     } catch {
+        if (Array.isArray(allowedDocIds)) {
+            try {
+                return await store.similaritySearch(query, k, docIdFilter(allowedDocIds))
+            } catch {
+                const hits = await store.similaritySearch(query, Math.max(k * 4, 24))
+                const allow = new Set(allowedDocIds.map(String))
+                return hits.filter((doc) => allow.has(String(doc.metadata?.docId || ""))).slice(0, k)
+            }
+        }
         return store.similaritySearch(query, k)
     }
 }

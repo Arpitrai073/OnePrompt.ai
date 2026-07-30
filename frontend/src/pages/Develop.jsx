@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { Building2, Check, ChevronDown, Copy, KeyRound, Plus, RefreshCw, Sparkles, Trash2, Activity, Library } from "lucide-react"
 import { useDispatch, useSelector } from "react-redux"
 import { createApiKey, getByok, getOrg, inviteMember, joinOrg, listApiKeys, listJobs, listUsage, removeMember, revokeApiKey, rotateApiKey, saveByok, updateApiKey, updateOrg } from "../features/apiKeys"
-import { deleteDocument, listDocuments, uploadDocument, waitForDocument } from "../features/documents"
+import { deleteDocument, listDocuments, updateDocumentAcl, uploadDocument, waitForDocument } from "../features/documents"
 import { createKnowledgeBase, listKnowledgeBases } from "../features/knowledgeBases"
 import api from "../../utils/axios"
 import getCurrentUser from "../features/getCurrentUser"
@@ -61,7 +61,21 @@ function Develop() {
     const [creatingKb, setCreatingKb] = useState(false)
     const [uploadingDoc, setUploadingDoc] = useState(false)
     const [deletingDoc, setDeletingDoc] = useState(null)
+    const [uploadAclMode, setUploadAclMode] = useState("org")
+    const [savingAclId, setSavingAclId] = useState(null)
     const fileInputRef = useRef(null)
+
+    const aclFromMode = (mode) => {
+        if (mode === "admins") return { mode: "roles", roles: ["owner", "admin"] }
+        return { mode: "org", roles: [], userIds: [] }
+    }
+
+    const aclLabel = (acl) => {
+        if (!acl || acl.mode === "org") return "Everyone"
+        if (acl.mode === "roles") return `Roles: ${(acl.roles || []).join(", ") || "—"}`
+        if (acl.mode === "users") return `Users: ${(acl.userIds || []).length}`
+        return acl.mode
+    }
 
     const selectKb = (slug) => {
         setKbSlug(slug)
@@ -428,7 +442,7 @@ function Develop() {
                                 <div>
                                     <h2 className="text-[16px] font-semibold">Workspace knowledge</h2>
                                     <p className="text-[13px] text-slate-500 mt-1">
-                                        Named corpora (PDF / DOCX / TXT). Ask with <code className="text-slate-300">agent=kb</code> and <code className="text-slate-300">kbSlug</code>.
+                                        Named corpora + ACL. Scanned PDFs/images use OCR. Ask with <code className="text-slate-300">agent=kb</code>.
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2 items-center">
@@ -438,13 +452,26 @@ function Develop() {
                                         className={`${fieldClass} w-auto min-w-[140px]`}
                                     >
                                         {(knowledgeBases.length ? knowledgeBases : [{ slug: "default", name: "Default" }]).map((kb) => (
-                                            <option key={kb.slug || kb.id} value={kb.slug}>{kb.name} ({kb.slug})</option>
+                                            <option key={kb.slug || kb.id} value={kb.slug}>
+                                                {String(kb.name || kb.slug).toLowerCase() === String(kb.slug || "").toLowerCase()
+                                                    ? (kb.name || kb.slug)
+                                                    : `${kb.name} (${kb.slug})`}
+                                            </option>
                                         ))}
+                                    </select>
+                                    <select
+                                        value={uploadAclMode}
+                                        onChange={(e) => setUploadAclMode(e.target.value)}
+                                        className={`${fieldClass} w-auto min-w-[160px]`}
+                                        title="Who can read this upload"
+                                    >
+                                        <option value="org">ACL: Everyone</option>
+                                        <option value="admins">ACL: Owners &amp; admins</option>
                                     </select>
                                     <input
                                         ref={fileInputRef}
                                         type="file"
-                                        accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,text/plain,.txt"
+                                        accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx,text/plain,.txt,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                                         hidden
                                         onChange={async (e) => {
                                             const file = e.target.files?.[0]
@@ -453,7 +480,11 @@ function Develop() {
                                             setUploadingDoc(true)
                                             setError("")
                                             try {
-                                                const result = await uploadDocument(file, { kbSlug, sync: true })
+                                                const result = await uploadDocument(file, {
+                                                    kbSlug,
+                                                    sync: true,
+                                                    acl: aclFromMode(uploadAclMode)
+                                                })
                                                 const doc = result?.document
                                                 if (doc?.status === "processing" && doc?.id) {
                                                     await waitForDocument(doc.id)
@@ -532,35 +563,58 @@ function Develop() {
                                     </p>
                                 )}
                                 {documents.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
                                         <div className="min-w-0">
                                             <p className="text-[13px] text-slate-200 truncate">{doc.filename}</p>
                                             <p className="text-[11px] text-slate-500 mt-0.5">
                                                 {doc.status}
                                                 {doc.kbSlug ? ` · ${doc.kbSlug}` : ""}
+                                                {` · ${aclLabel(doc.acl)}`}
                                                 {doc.chunkCount ? ` · ${doc.chunkCount} chunks` : ""}
                                                 {doc.bytes ? ` · ${Math.max(1, Math.ceil(doc.bytes / 1024))} KB` : ""}
                                                 {doc.error ? ` · ${doc.error}` : ""}
                                             </p>
                                         </div>
-                                        <button
-                                            disabled={deletingDoc === doc.id}
-                                            onClick={async () => {
-                                                setDeletingDoc(doc.id)
-                                                setError("")
-                                                try {
-                                                    await deleteDocument(doc.id)
-                                                    await refresh()
-                                                } catch (err) {
-                                                    setError(err?.response?.data?.message || "Could not delete document.")
-                                                } finally {
-                                                    setDeletingDoc(null)
-                                                }
-                                            }}
-                                            className="text-red-300 text-[12px] disabled:opacity-40"
-                                        >
-                                            {deletingDoc === doc.id ? "Removing..." : "Delete"}
-                                        </button>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <select
+                                                disabled={savingAclId === doc.id}
+                                                value={doc.acl?.mode === "roles" ? "admins" : "org"}
+                                                onChange={async (e) => {
+                                                    setSavingAclId(doc.id)
+                                                    setError("")
+                                                    try {
+                                                        await updateDocumentAcl(doc.id, aclFromMode(e.target.value))
+                                                        await refresh()
+                                                    } catch (err) {
+                                                        setError(err?.response?.data?.message || "Could not update ACL.")
+                                                    } finally {
+                                                        setSavingAclId(null)
+                                                    }
+                                                }}
+                                                className="h-8 rounded-lg bg-[#0b0d12] border border-white/[0.08] px-2 text-[11px] text-slate-300"
+                                            >
+                                                <option value="org">Everyone</option>
+                                                <option value="admins">Owners &amp; admins</option>
+                                            </select>
+                                            <button
+                                                disabled={deletingDoc === doc.id}
+                                                onClick={async () => {
+                                                    setDeletingDoc(doc.id)
+                                                    setError("")
+                                                    try {
+                                                        await deleteDocument(doc.id)
+                                                        await refresh()
+                                                    } catch (err) {
+                                                        setError(err?.response?.data?.message || "Could not delete document.")
+                                                    } finally {
+                                                        setDeletingDoc(null)
+                                                    }
+                                                }}
+                                                className="text-red-300 text-[12px] disabled:opacity-40"
+                                            >
+                                                {deletingDoc === doc.id ? "Removing..." : "Delete"}
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

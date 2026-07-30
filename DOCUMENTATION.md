@@ -420,7 +420,8 @@ Paths below are as the **browser or customer** sees them (gateway prefixes). Ser
 | DELETE | `/v1/knowledge-bases/:id` | Delete empty KB (or `force=true`) |
 | GET | `/v1/documents` | List docs (`?kbId=` / `?kbSlug=`) + quota |
 | GET | `/v1/documents/:docId` | Poll single document status |
-| POST | `/v1/documents` | Multipart `file` + `kbSlug`. PDF/DOCX/TXT. Default **202** async; `?sync=true` waits |
+| POST | `/v1/documents` | Multipart `file` + `kbSlug` + optional `acl`. PDF/DOCX/TXT. Default **202** async; `?sync=true` waits |
+| POST | `/v1/documents/:docId/acl` | Update `{ mode, roles, userIds }` (owner/admin) |
 | DELETE | `/v1/documents/:docId` | Remove vectors, S3 original, and metadata |
 
 ---
@@ -503,7 +504,8 @@ Same as auth audit (JSON or `format=csv`).
 - `POST /v1/knowledge-bases` — `{ name, slug }` (slug optional; `default` is reserved and auto-created).
 - `GET /v1/knowledge-bases` — list KBs plus `{ usedDocuments, maxDocuments, usedBytes, maxBytes }`.
 - `DELETE /v1/knowledge-bases/:id` — blocked if not empty unless `force=true`; cannot delete `default`.
-- `POST /v1/documents` — multipart `file` (PDF / DOCX / TXT, 20 MB) plus optional `kbId` or `kbSlug` (default `default`). Returns **202** `{ async, status: "processing", document, jobId }`. Poll `GET /v1/jobs/:jobId` or `GET /v1/documents/:docId`. Pass `?sync=true` to wait for indexing (handy for Develop). Credits for ingest charge when the worker starts.
+- `POST /v1/documents` — multipart `file` (PDF / DOCX / TXT / PNG / JPG / WEBP, 20 MB) plus optional `kbId` or `kbSlug` (default `default`). Returns **202** `{ async, status: "processing", document, jobId }`. Poll `GET /v1/jobs/:jobId` or `GET /v1/documents/:docId`. Pass `?sync=true` to wait for indexing (handy for Develop). Credits for ingest charge when the worker starts.
+- **OCR:** digital PDFs use `pdf-parse` first. If the text looks empty/sparse (typical scan), Gemini (`KB_OCR_MODEL` or `gemini-2.5-flash`) OCRs the PDF. Image uploads always go through OCR. Needs `GOOGLE_API_KEY` (or BYOK Gemini). Slower/costlier than text-only PDFs; very large scans may hit model size limits.
 - `GET /v1/documents` — filter `?kbSlug=` / `?kbId=`; includes quota summary.
 - `DELETE /v1/documents/:docId` — delete vectors, S3 object, and Mongo row.
 
@@ -517,7 +519,15 @@ Then ask with no file:
 { "prompt": "What is the refund window?", "agent": "kb", "kbSlug": "handbook" }
 ```
 
-Success includes `sources: [{ docId, filename, kbSlug }]`. Empty KB returns **409** `knowledge_base_empty`. Normal `auto` chat never searches this corpus. Attaching a PDF to `/v1/run` still uses one-shot `pdfRag`. Per-document ACLs are not shipped yet.
+Success includes `sources: [{ docId, filename, kbSlug }]`. Empty KB returns **409** `knowledge_base_empty`. Normal `auto` chat never searches this corpus. Attaching a PDF to `/v1/run` still uses one-shot `pdfRag`.
+
+**Per-document ACL (Batch B):** each document has `acl: { mode, roles, userIds }`.
+- `mode: "org"` (default) — every active org member can read
+- `mode: "roles"` — only listed roles (`owner` / `admin` / `member`); typical HR lock: `roles: ["owner","admin"]`
+- `mode: "users"` — only listed `userIds` (plus the uploader)
+- Workspace **owners always** read every document
+- List + `agent=kb` search only include documents the caller can read (Qdrant filtered by allowed `docId`s)
+- Set on upload (`acl` form JSON / `aclMode`) or `POST /v1/documents/:docId/acl`
 
 ### Errors (typical)
 
@@ -992,7 +1002,7 @@ Content-Type: application/json
 
 ## 28. What is not implemented
 
-Repeat of §3, for interview honesty: no streaming, no WebSockets, no GraphQL, no official SDK, no SAML, no conversation delete, no per-document ACLs / Drive / OCR, no automated tests, no ECS/CloudFront in production, no Gemini image generation, tester not hosted. Named knowledge bases, async ingest, quotas, and PDF/DOCX/TXT **are** implemented.
+Repeat of §3, for interview honesty: no streaming, no WebSockets, no GraphQL, no official SDK, no SAML, no conversation delete, no Google Drive sync, no automated tests, no ECS/CloudFront in production, no Gemini image generation, tester not hosted. Named knowledge bases, async ingest, quotas, PDF/DOCX/TXT/images, Gemini OCR for scans, and **per-document ACLs** **are** implemented (ACL+OCR may still be local-only until you push).
 
 `React.lazy` / `useMemo` / `useCallback` are **not** a stated optimization of this project.
 

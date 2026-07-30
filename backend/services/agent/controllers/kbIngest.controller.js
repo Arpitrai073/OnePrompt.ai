@@ -63,9 +63,16 @@ export const ingestKbDocument = async (req, res, next) => {
         await deductCredits(userId, "kbIngest", billingMode, keyId)
 
         const buffer = fs.readFileSync(file.path)
-        const text = await extractTextFromBuffer(buffer, file.mimetype, filename)
+        const extracted = await extractTextFromBuffer(buffer, file.mimetype, filename, {
+            billingMode,
+            providerKeys
+        })
+        const text = extracted?.text || ""
+        const ocrUsed = Boolean(extracted?.ocrUsed)
         if (!text) {
-            const err = new Error("Could not extract text from this file.")
+            const err = new Error(ocrUsed
+                ? "OCR found no readable text in this file."
+                : "Could not extract text from this file. If it is a scan, OCR also returned empty.")
             err.status = 400
             err.data = { ok: false, error: "empty_document", message: err.message }
             throw err
@@ -104,7 +111,9 @@ export const ingestKbDocument = async (req, res, next) => {
             s3Key,
             chunkCount: docs.length,
             pageEstimate,
-            billingMode
+            billingMode,
+            ocrUsed,
+            extractMethod: extracted?.method || "unknown"
         })
     } catch (error) {
         next(error)

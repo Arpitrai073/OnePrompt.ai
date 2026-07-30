@@ -26,7 +26,7 @@ const fileFilter = (req, file, cb) => {
     ) {
         cb(null, true)
     } else {
-        cb(new Error("Only PDF, DOCX, TXT, and images are allowed."))
+        cb(new Error("Only PDF, DOCX, TXT, and images (PNG/JPG/WEBP) are allowed."))
     }
 }
 

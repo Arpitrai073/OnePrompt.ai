@@ -215,13 +215,14 @@ function Docs() {
                         {tab === "knowledge" && (
                             <section>
                                 <h1 className="mt-2 text-[32px] font-semibold tracking-tight">Workspace knowledge</h1>
-                                <p className="mt-3 text-[15px] text-slate-400 leading-relaxed">Named knowledge bases per workspace. Upload PDF, DOCX, or TXT once (async by default). Ask later with JSON only. One-shot RAG still works when you attach a file to <code className="font-mono text-slate-200">/v1/run</code>.</p>
+                                <p className="mt-3 text-[15px] text-slate-400 leading-relaxed">Named knowledge bases per workspace. Upload PDF, DOCX, TXT, or images once (async by default). Scanned PDFs with little extractable text fall back to Gemini OCR. Ask later with JSON only.</p>
                                 <div className="mt-8 space-y-4">
                                     {[
                                         ["1", "Create KB", "POST /v1/knowledge-bases with name and optional slug. Default KB is created automatically."],
                                         ["2", "Upload", "POST /v1/documents multipart file + kbSlug. Returns 202 with jobId. Poll job or document until ready. Use ?sync=true for small local uploads."],
                                         ["3", "Ask", "POST /v1/run with agent kb, prompt, and kbSlug. Do not send a file."],
-                                        ["4", "Quotas", "Org limits apply (free 50 docs / 200 MB; api_starter 200 / 1 GB; api_pro 1000 / 5 GB). Quota is returned on list endpoints."]
+                                        ["4", "Quotas", "Org limits apply (free 50 docs / 200 MB; api_starter 200 / 1 GB; api_pro 1000 / 5 GB). Quota is returned on list endpoints."],
+                                        ["5", "ACL", "Each document has acl.mode: org (everyone), roles (e.g. owner+admin), or users (explicit ids). Owners always see all. Search only uses docs you can read. POST /v1/documents/:id/acl to change."]
                                     ].map(([n, title, body]) => (
                                         <div key={n} className="flex gap-4 rounded-2xl border border-white/[0.07] bg-[#11141c] p-4">
                                             <div className="w-8 h-8 rounded-lg bg-indigo-500/15 text-indigo-200 text-[13px] font-semibold flex items-center justify-center shrink-0">{n}</div>
@@ -259,7 +260,16 @@ function Docs() {
   -d '{"prompt":"What is the refund window?","agent":"kb","kbSlug":"handbook"}'`}
                                     />
                                 </div>
-                                <p className="mt-4 text-[13px] text-slate-500">List with GET /v1/documents?kbSlug=handbook. Remove with DELETE /v1/documents/:docId. Empty KB returns 409 knowledge_base_empty. Auto chat never searches this corpus. Per-document ACLs are not in this release.</p>
+                                <div className="mt-4">
+                                    <CodeBlock
+                                        label="Set ACL (owners & admins only)"
+                                        code={`curl -X POST ${baseUrl}/v1/documents/DOC_ID/acl \\
+  -H "Authorization: Bearer $ONEPROMPT_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"mode":"roles","roles":["owner","admin"]}'`}
+                                    />
+                                </div>
+                                <p className="mt-4 text-[13px] text-slate-500">List with GET /v1/documents?kbSlug=handbook (filtered to docs you can read). Remove with DELETE /v1/documents/:docId. Empty / no-access returns 409 knowledge_base_empty. Auto chat never searches this corpus.</p>
                             </section>
                         )}
 

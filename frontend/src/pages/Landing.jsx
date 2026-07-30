@@ -1,7 +1,7 @@
 import React from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useDispatch, useSelector } from "react-redux"
-import { ArrowRight, FileText, Heart, ImageIcon, KeyRound, MessageSquare, Shield } from "lucide-react"
+import { ArrowRight, FileText, Heart, ImageIcon, KeyRound, Library, MessageSquare, Shield } from "lucide-react"
 import SiteHeader from "../components/SiteHeader"
 import CodeBlock from "../components/CodeBlock"
 import ProductPreview from "../components/ProductPreview"
@@ -59,7 +59,7 @@ function Landing() {
                             <span className="block text-transparent bg-clip-text bg-linear-to-r from-indigo-200 via-white to-violet-200">Every agent.</span>
                         </h1>
                         <p className="mt-5 text-[16px] md:text-[17px] text-slate-400 leading-relaxed max-w-xl">
-                            OnePrompt is the router other products call — prepaid credits, a playground to prove it, and <span className="text-slate-200 font-mono text-[14px]">POST /v1/run</span> for PDFs, images, search, and document Q&amp;A.
+                            OnePrompt is the router other products call — prepaid credits, a playground to prove it, and <span className="text-slate-200 font-mono text-[14px]">POST /v1/run</span> for PDFs, images, search, and workspace knowledge bases.
                         </p>
                         <div className="mt-8 flex flex-wrap gap-3">
                             <button onClick={start} className="h-11 px-5 rounded-xl bg-white text-black text-[14px] font-medium inline-flex items-center gap-2 cursor-pointer hover:bg-slate-100">
@@ -78,7 +78,7 @@ function Landing() {
                     {[
                         [FileText, "Generate documents", "agent=pdf — contracts, NDAs, summaries as downloadable files."],
                         [ImageIcon, "Generate images", "agent=vision — then a signed download. Refresh with /v1/files."],
-                        [MessageSquare, "Ask a PDF", "agent=auto + file — RAG over the upload, not a generic chat."]
+                        [Library, "Workspace knowledge", "Upload once to a named KB. Ask later with agent=kb — no file on every request."]
                     ].map(([Icon, title, copy]) => (
                         <div key={title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 hover:border-white/[0.12] transition-colors">
                             <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-400/15 flex items-center justify-center">
@@ -90,11 +90,34 @@ function Landing() {
                     ))}
                 </section>
 
+                <section className="mt-16">
+                    <div className="mb-4">
+                        <h2 className="text-[20px] font-semibold">Knowledge bases for your product</h2>
+                        <p className="mt-1 text-[13px] text-slate-500 max-w-2xl">Named corpora per workspace, async ingest, OCR for scans, and per-document access so handbook and HR stay separate.</p>
+                    </div>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {[
+                            ["Named KBs", "handbook, hr, … — each maps to its own vector corpus."],
+                            ["Async ingest", "POST /v1/documents returns 202. Poll the job or document until ready."],
+                            ["OCR + formats", "PDF, DOCX, TXT, and images. Scans fall back to Gemini OCR."],
+                            ["Document ACL", "org, roles, or users. Owners always see all; search respects access."]
+                        ].map(([title, copy]) => (
+                            <div key={title} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+                                <h3 className="text-[14px] font-medium">{title}</h3>
+                                <p className="mt-1.5 text-[13px] text-slate-500 leading-relaxed">{copy}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <Link to="/docs?tab=knowledge" className="mt-4 inline-block text-[13px] text-indigo-300">
+                        Knowledge API docs →
+                    </Link>
+                </section>
+
                 <section className="mt-16 grid md:grid-cols-2 gap-4">
                     <div className="rounded-2xl border border-white/[0.08] bg-linear-to-b from-white/[0.05] to-transparent p-6">
                         <p className="text-[11px] uppercase tracking-widest text-slate-500">For people</p>
                         <h2 className="mt-2 text-[20px] font-semibold">Playground</h2>
-                        <p className="mt-2 text-[14px] text-slate-400">Sign in, pick Auto or a chip, and see the same engine the API uses. Credits are prepaid. No surprise invoice.</p>
+                        <p className="mt-2 text-[14px] text-slate-400">Sign in, pick Auto or Knowledge, choose a KB, and see the same engine the API uses. Credits are prepaid.</p>
                         <button onClick={start} className="mt-5 text-[13px] text-indigo-300 cursor-pointer bg-transparent border-0 p-0">
                             Start a chat →
                         </button>
@@ -102,8 +125,8 @@ function Landing() {
                     <div className="rounded-2xl border border-white/[0.08] bg-linear-to-b from-white/[0.05] to-transparent p-6">
                         <p className="text-[11px] uppercase tracking-widest text-slate-500">For products</p>
                         <h2 className="mt-2 text-[20px] font-semibold">API</h2>
-                        <p className="mt-2 text-[14px] text-slate-400">Create a key in Develop. Call from your server only. Optional BYOK so model spend hits Groq or Gemini, not us.</p>
-                        <Link to="/docs?tab=run" className="mt-5 inline-block text-[13px] text-indigo-300">See /v1/run →</Link>
+                        <p className="mt-2 text-[14px] text-slate-400">Create a key in Develop. Upload docs, set ACL, then call <span className="font-mono text-slate-300">agent=kb</span> with <span className="font-mono text-slate-300">kbSlug</span> from your server.</p>
+                        <Link to="/docs?tab=knowledge" className="mt-5 inline-block text-[13px] text-indigo-300">See knowledge docs →</Link>
                     </div>
                 </section>
 
@@ -132,11 +155,12 @@ function Landing() {
                     <CodeBlock code={snippet} />
                 </section>
 
-                <section className="mt-16 grid sm:grid-cols-3 gap-3">
+                <section className="mt-16 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                         [KeyRound, "Prepaid only", "A leaked key spends your credits. Revoke is instant."],
                         [Shield, "Two billing modes", "Use our models, or bring Groq / Gemini / OpenRouter keys."],
-                        [FileText, "Files you can recover", "Signed URLs expire. GET /v1/files/:requestId mints a new one."]
+                        [FileText, "Files you can recover", "Signed URLs expire. GET /v1/files/:requestId mints a new one."],
+                        [MessageSquare, "One-shot RAG still works", "Attach a PDF to /v1/run for a throwaway ask — separate from workspace KBs."]
                     ].map(([Icon, title, copy]) => (
                         <div key={title} className="rounded-2xl border border-white/[0.06] p-5">
                             <Icon size={16} className="text-slate-400" />
@@ -152,6 +176,7 @@ function Landing() {
                     <Logo size={24} />
                     <div className="flex items-center gap-5 text-[13px] text-slate-500">
                         <Link to="/docs" className="hover:text-slate-200">Docs</Link>
+                        <Link to="/docs?tab=knowledge" className="hover:text-slate-200">Knowledge</Link>
                         <Link to="/docs?tab=pricing" className="hover:text-slate-200">Pricing</Link>
                     </div>
                     <p className="text-[13px] text-slate-500 inline-flex items-center gap-1.5">

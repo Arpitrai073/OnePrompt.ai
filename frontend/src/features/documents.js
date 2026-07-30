@@ -10,14 +10,20 @@ export const getDocument = async (id) => {
     return data
 }
 
-export const uploadDocument = async (file, { kbId, kbSlug, sync = true } = {}) => {
+export const uploadDocument = async (file, { kbId, kbSlug, sync = true, acl } = {}) => {
     const form = new FormData()
     form.append("file", file)
     if (kbId) form.append("kbId", kbId)
     if (kbSlug) form.append("kbSlug", kbSlug)
+    if (acl) form.append("acl", JSON.stringify(acl))
     const { data } = await api.post("/v1/documents", form, {
         params: sync ? { sync: "true" } : undefined
     })
+    return data
+}
+
+export const updateDocumentAcl = async (id, acl) => {
+    const { data } = await api.post(`/v1/documents/${id}/acl`, acl)
     return data
 }
 

@@ -10,7 +10,7 @@ import { runApi } from "./controllers/run.controller.js"
 import { getRunFiles } from "./controllers/files.controller.js"
 import { getJob } from "./controllers/jobs.controller.js"
 import { getAudit } from "./controllers/audit.controller.js"
-import { createPublicDocument, deletePublicDocument, getPublicDocument, listPublicDocuments } from "./controllers/documents.controller.js"
+import { createPublicDocument, deletePublicDocument, getPublicDocument, listPublicDocuments, updatePublicDocumentAcl } from "./controllers/documents.controller.js"
 import { createPublicKnowledgeBase, deletePublicKnowledgeBase, listPublicKnowledgeBases } from "./controllers/knowledgeBases.controller.js"
 import { startWebhookWorker } from "./utils/webhookWorker.js"
 import protect from "./middleware/auth.middleware.js"
@@ -67,6 +67,7 @@ app.delete("/v1/knowledge-bases/:id", protect, deletePublicKnowledgeBase)
 app.get("/v1/documents", protect, listPublicDocuments)
 app.get("/v1/documents/:docId", protect, getPublicDocument)
 app.post("/v1/documents", protect, upload.single("file"), createPublicDocument)
+app.post("/v1/documents/:docId/acl", protect, express.json(), updatePublicDocumentAcl)
 app.delete("/v1/documents/:docId", protect, deletePublicDocument)
 app.get("/", (req, res) => {
     res.json({ message: "hello from gateway v5" })

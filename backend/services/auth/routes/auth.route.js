@@ -5,7 +5,7 @@ import { getByok, resolveByok, saveByok } from "../controllers/byok.controller.j
 import { getOrg, inviteMember, joinOrg, removeMember, updateOrg } from "../controllers/org.controller.js"
 import { ackWebhook, createJob, dueWebhooks, enqueueWebhook, getJob, listJobs, updateJob } from "../controllers/job.controller.js"
 import { exportAudit } from "../controllers/audit.controller.js"
-import { createDocument, deleteDocument, getDocument, listDocuments, updateDocumentStatus } from "../controllers/document.controller.js"
+import { createDocument, deleteDocument, getDocument, listDocuments, updateDocumentAcl, updateDocumentStatus } from "../controllers/document.controller.js"
 import { createKnowledgeBase, deleteKnowledgeBase, listKnowledgeBases } from "../controllers/knowledgeBase.controller.js"
 import { requireInternalToken } from "../../../shared/internalAuth.js"
 
@@ -39,6 +39,7 @@ router.post("/knowledge-bases/:id/delete", requireInternalToken, deleteKnowledge
 router.post("/documents", requireInternalToken, createDocument)
 router.get("/documents", requireInternalToken, listDocuments)
 router.get("/documents/:id", requireInternalToken, getDocument)
+router.post("/documents/:id/acl", requireInternalToken, updateDocumentAcl)
 router.delete("/documents/:id", requireInternalToken, deleteDocument)
 router.post("/documents/:id/delete", requireInternalToken, deleteDocument)
 router.post("/internal/documents/:id", requireInternalToken, updateDocumentStatus)

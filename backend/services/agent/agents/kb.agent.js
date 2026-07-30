@@ -44,27 +44,31 @@ export const kbAgent = async (state) => {
                 params: { status: "ready", kbSlug }
             }
         )
-        const readyCount = Number(data?.count || data?.documents?.length || 0)
+        const visibleDocs = data?.documents || []
+        const readyCount = Number(data?.count || visibleDocs.length || 0)
         if (!readyCount) {
-            const err = new Error(`No documents in knowledge base '${kbSlug}' yet. Upload files in Develop → Knowledge, then ask again.`)
+            const err = new Error(`No accessible documents in knowledge base '${kbSlug}'. Upload files or ask an admin for access.`)
             err.status = 409
             err.data = { ok: false, error: "knowledge_base_empty", message: err.message }
             throw err
         }
 
-        const hits = await searchKb(state.prompt, orgId, getEmbeddings(state), 8, kbSlug)
+        const allowedDocIds = visibleDocs.map((doc) => String(doc.id)).filter(Boolean)
+        const hits = await searchKb(state.prompt, orgId, getEmbeddings(state), 8, kbSlug, allowedDocIds)
         if (hits === null) {
-            const err = new Error(`No documents in knowledge base '${kbSlug}' yet. Upload files in Develop → Knowledge, then ask again.`)
+            const err = new Error(`No accessible documents in knowledge base '${kbSlug}'. Upload files or ask an admin for access.`)
             err.status = 409
             err.data = { ok: false, error: "knowledge_base_empty", message: err.message }
             throw err
         }
 
-        const context = hits.map((doc) => {
+        const allow = new Set(allowedDocIds)
+        const safeHits = (hits || []).filter((doc) => allow.has(String(doc.metadata?.docId || "")))
+        const context = safeHits.map((doc) => {
             const name = doc.metadata?.filename || "document.pdf"
             return `Source: ${name}\n${doc.pageContent}`
         }).join("\n\n")
-        const sources = uniqueSources(hits)
+        const sources = uniqueSources(safeHits)
 
         const llm = await getModel("kb", state)
         const response = await llm.invoke([

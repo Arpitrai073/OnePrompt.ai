@@ -27,7 +27,30 @@ const isAllowedUpload = (file) => {
     if (mime === "application/pdf" || name.endsWith(".pdf")) return true
     if (mime === DOCX || name.endsWith(".docx")) return true
     if (mime === "text/plain" || name.endsWith(".txt")) return true
+    if (mime.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(name)) return true
     return false
+}
+
+const parseAclFromBody = (body = {}) => {
+    if (!body) return null
+    if (typeof body.acl === "string" && body.acl.trim()) {
+        try {
+            return JSON.parse(body.acl)
+        } catch {
+            return null
+        }
+    }
+    if (body.acl && typeof body.acl === "object") return body.acl
+    if (body.aclMode) {
+        const roles = typeof body.aclRoles === "string"
+            ? body.aclRoles.split(",").map((s) => s.trim()).filter(Boolean)
+            : body.aclRoles
+        const userIds = typeof body.aclUserIds === "string"
+            ? body.aclUserIds.split(",").map((s) => s.trim()).filter(Boolean)
+            : body.aclUserIds
+        return { mode: body.aclMode, roles, userIds }
+    }
+    return null
 }
 
 const markStatus = async (id, body) => {
@@ -151,7 +174,7 @@ export const createPublicDocument = async (req, res) => {
         return res.status(400).json({
             ok: false,
             error: "invalid_request",
-            message: "Only PDF, DOCX, or TXT uploads are supported.",
+            message: "Only PDF, DOCX, TXT, or image (PNG/JPG/WEBP) uploads are supported.",
             requestId
         })
     }
@@ -174,14 +197,17 @@ export const createPublicDocument = async (req, res) => {
 
     let doc
     try {
+        const payload = {
+            filename: req.file.originalname,
+            bytes: req.file.size,
+            kbId: req.body?.kbId,
+            kbSlug: req.body?.kbSlug
+        }
+        const acl = parseAclFromBody(req.body)
+        if (acl) payload.acl = acl
         const created = await axios.post(
             `${process.env.AUTH_SERVICE}/documents`,
-            {
-                filename: req.file.originalname,
-                bytes: req.file.size,
-                kbId: req.body?.kbId,
-                kbSlug: req.body?.kbSlug
-            },
+            payload,
             { headers: authHeaders(req) }
         )
         doc = created.data
@@ -248,6 +274,20 @@ export const createPublicDocument = async (req, res) => {
     })
 
     return res.status(202).json(accepted)
+}
+
+export const updatePublicDocumentAcl = async (req, res) => {
+    try {
+        const acl = parseAclFromBody(req.body) || req.body
+        const { data } = await axios.post(
+            `${process.env.AUTH_SERVICE}/documents/${req.params.docId}/acl`,
+            acl,
+            { headers: authHeaders(req) }
+        )
+        return res.status(200).json({ ok: true, document: data })
+    } catch (error) {
+        return fail(res, error)
+    }
 }
 
 export const deletePublicDocument = async (req, res) => {

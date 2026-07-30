@@ -45,11 +45,26 @@ const kbDocumentSchema = new mongoose.Schema({
     error: {
         type: String,
         default: ""
+    },
+    /** org = all members; roles = aclRoles only; users = aclUserIds only. Owners always read. */
+    aclMode: {
+        type: String,
+        enum: ["org", "roles", "users"],
+        default: "org"
+    },
+    aclRoles: {
+        type: [String],
+        default: []
+    },
+    aclUserIds: {
+        type: [String],
+        default: []
     }
 }, { timestamps: true })
 
 kbDocumentSchema.index({ orgId: 1, kbId: 1, createdAt: -1 })
 kbDocumentSchema.index({ orgId: 1, kbSlug: 1, createdAt: -1 })
+kbDocumentSchema.index({ orgId: 1, aclMode: 1 })
 
 const KbDocument = mongoose.model("KbDocument", kbDocumentSchema)
 export default KbDocument
